@@ -9,6 +9,10 @@
 //! `Face` and `Color` are used to represent face cards and suit colors
 //! respectively.
 
+mod errors;
+
+use crate::errors::{TrumpValueError, PipValueError};
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 /// Enum representing the four different suits colors.
 pub enum Color {
@@ -64,7 +68,7 @@ pub trait Card {
   /// assert!(hearts_king.rank(hearts_theme) > hearts_five.rank(hearts_theme));
   /// assert!(little_one.rank(hearts_theme) > hearts_king.rank(hearts_theme));
   /// ```
-  fn rank(&self, Theme) -> u8;
+  fn rank(&self, theme: Theme) -> u8;
 }
 
 #[derive(Clone, Copy)]
@@ -135,15 +139,16 @@ impl ColorCard {
   }
 
   /// Creates a new pip card.
-  pub fn new_pip(number: u8, color: Color) -> Option<Self> {
+  /// Returns an error in case of invalid value given for number argument (ie. equals 0 or is greater than max pip value : 10)
+  pub fn new_pip(number: u8, color: Color) -> Result<Self,PipValueError> {
     if number > 0 && number < 11 {
-      Option::Some(ColorCard {
+      Ok(ColorCard {
         color,
-        face: Option::None,
         number,
+        face: None,
       })
     } else {
-      Option::None
+      Err(PipValueError::new(number))
     }
   }
 
@@ -192,13 +197,13 @@ pub enum TrumpCard {
 }
 
 impl TrumpCard {
-  /// Returns a new trump card, if the given number is in the accepted range
-  /// of 1 to 21 (inclusive).
-  pub fn new_trump_card(numero: u8) -> Option<Self> {
-    if numero > 0 && numero < 22 {
-      Some(TrumpCard::Number(numero))
+  /// Creates a new pip card.
+  /// Returns an error in case of invalid value given for number argument (ie. equals 0 or is greater than max trump value : 21)
+  pub fn new_trump_card(value: u8) -> Result<Self,TrumpValueError> {
+    if value > 0 && value < 22 {
+      Ok(TrumpCard::Number(value))
     } else {
-      None
+      Err(TrumpValueError::new(value))
     }
   }
 
@@ -240,7 +245,7 @@ impl TrumpCard {
 impl Card for ColorCard {
   fn points(&self) -> f32 {
     if self.is_face() {
-      match self.face_checked() {
+      match self.face().unwrap() {
         Face::King => 4.5,
         Face::Queen => 3.5,
         Face::Knight => 2.5,
@@ -308,6 +313,24 @@ mod tests {
       trump = TrumpCard::Number(i);
       assert!(!trump.is_oudler());
     }
+  }
+
+  #[test]
+  fn test_pip_value_error() {
+    let wrong_pip_result = ColorCard::new_pip(32, Color::Hearts);
+    assert!(wrong_pip_result.is_err());
+
+    let wrong_pip_result = ColorCard::new_pip(0, Color::Hearts);
+    assert!(wrong_pip_result.is_err());
+  }
+
+  #[test]
+  fn test_trump_value_error() {
+    let wrong_trump_value = TrumpCard::new_trump_card(23);
+    assert!(wrong_trump_value.is_err());
+
+    let wrong_trump_value = TrumpCard::new_trump_card(0);
+    assert!(wrong_trump_value.is_err());
   }
 
   #[test]
